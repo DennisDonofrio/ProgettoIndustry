@@ -1,0 +1,46 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+
+# Maven
+target/
+
+# VS Code
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.env/
+
+# Java
+out/
+*.class
+
+# Kotlin
+*.kotlin_module
+
+# Generated files
+bin/
+
+# LEGO Mindstorms / generic data
+data/
+exports/
