@@ -1,3 +1,5 @@
+import java.util.Objects;
+
 public class MachineState {
     private int leftGateCounter;
     private int rightGateCounter;
@@ -8,6 +10,21 @@ public class MachineState {
     private boolean sortingOpen = false;
     private boolean leftBatchPresent = false;
     private boolean rightBatchPresent = false;
+
+    public MachineState() {
+    }
+
+    public MachineState(MachineState other) {
+        this.leftGateCounter = other.leftGateCounter;
+        this.rightGateCounter = other.rightGateCounter;
+        this.leftDepoCounter = other.leftDepoCounter;
+        this.rightDepoCounter = other.rightDepoCounter;
+        this.leftGateOpen = other.leftGateOpen;
+        this.rightGateOpen = other.rightGateOpen;
+        this.sortingOpen = other.sortingOpen;
+        this.leftBatchPresent = other.leftBatchPresent;
+        this.rightBatchPresent = other.rightBatchPresent;
+    }
 
     public int getLeftGateCounter() {
         return leftGateCounter;
@@ -86,6 +103,7 @@ public class MachineState {
     }
 
     public void setLeftBatchPresent(boolean leftBatchPresent) {
+        System.out.println("LeftBatchPresent: " + leftBatchPresent);
         this.leftBatchPresent = leftBatchPresent;
     }
 
@@ -93,7 +111,29 @@ public class MachineState {
         return rightBatchPresent;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof MachineState)) return false;
+        MachineState that = (MachineState) o;
+        return getLeftGateCounter() == that.getLeftGateCounter()
+                && getRightGateCounter() == that.getRightGateCounter()
+                && getLeftDepoCounter() == that.getLeftDepoCounter()
+                && getRightDepoCounter() == that.getRightDepoCounter()
+                && isLeftGateOpen() == that.isLeftGateOpen()
+                && isRightGateOpen() == that.isRightGateOpen()
+                && isSortingOpen() == that.isSortingOpen()
+                && isLeftBatchPresent() == that.isLeftBatchPresent()
+                && isRightBatchPresent() == that.isRightBatchPresent();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getLeftGateCounter(), getRightGateCounter(), getLeftDepoCounter(), getRightDepoCounter(), isLeftGateOpen(), isRightGateOpen(), isSortingOpen(), isLeftBatchPresent(), isRightBatchPresent());
+    }
+
     public void setRightBatchPresent(boolean rightBatchPresent) {
+        System.out.println("RightBatchPresent: " + rightBatchPresent);
         this.rightBatchPresent = rightBatchPresent;
     }
 }

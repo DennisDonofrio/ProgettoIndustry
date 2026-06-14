@@ -14,22 +14,38 @@ public class InfluxDB {
 
     private InfluxDBClient client;
 
+    private WriteApiBlocking writeApi;
+
     public InfluxDB(String token, String bucket, String org){
         this.token = token;
         this.bucket = bucket;
         this.org = org;
 
         client = InfluxDBClientFactory.create("http://192.168.50.10:8086", token.toCharArray());
+        writeApi = client.getWriteApiBlocking();
     }
 
     public void write(MachineState machineState){
+        //+System.out.println("Write");
         Point point = Point
-                .measurement("mem")
-                .addTag("host", "host2")
-                .addField("used_percent", Math.random())
-                .time(Instant.now(), WritePrecision.NS);
+                .measurement("line_state")
+                .addTag("host", "host1")
 
-        WriteApiBlocking writeApi = client.getWriteApiBlocking();
+                .addField("leftGateCounterValue", machineState.getLeftGateCounter())
+                .addField("rightGateCounterValue", machineState.getRightGateCounter())
+                .addField("leftDepoCounterValue", machineState.getLeftDepoCounter())
+                .addField("rightDepoCounterValue", machineState.getRightDepoCounter())
+
+                .addField("leftGateOpenValue", machineState.isLeftGateOpen() ? 1 : 0)
+                .addField("rightGateOpenValue", machineState.isRightGateOpen() ? 1 : 0)
+                .addField("sortingOpenValue", machineState.isSortingOpen() ? 1 : 0)
+
+                .addField("leftBatchPresentValue", machineState.isLeftBatchPresent() ? 1 : 0)
+                .addField("rightBatchPresentValue", machineState.isRightBatchPresent() ? 1 : 0)
+
+                .time(System.currentTimeMillis(), WritePrecision.MS);
+        //System.out.println(point.toLineProtocol());
+
         writeApi.writePoint(bucket, org, point);
     }
 }

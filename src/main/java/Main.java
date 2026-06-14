@@ -1,4 +1,3 @@
-import com.influxdb.client.domain.Bucket;
 import org.iot.raspberry.grovepi.GrovePi;
 import org.iot.raspberry.grovepi.pi4j.GrovePi4J;
 import org.iot.raspberry.grovepi.sensors.analog.GroveRotarySensor;
@@ -12,8 +11,12 @@ import java.util.logging.Logger;
 
 public class Main {
 
-    final int NR_PRODUCTS = 10;
-    final double RANGER_MAX_DISTANCE = 15.0;
+    final double RANGER_MAX_DISTANCE = 50.0;
+    final double ROTARY_THRESHOLD = 30.0;
+    final long LOOP_DELAY_MS = 10;
+    final long ROTARY_MONITOR_DELAY_MS = 100;
+    final long RANGER_MONITOR_DELAY_MS = 700;
+
     final String TOKEN = "c3P6J_F9O0CIcy8aGJr2RZNX6m2z_gRDLkf6-EbjRmdofwP1EkN_jfH1Y4SpAHg5YaGF6FdlpzRPYQAi6DtB8w==";
     final String ORG = "Supsi";
     final String BUCKET = "NanoFactory";
@@ -31,112 +34,136 @@ public class Main {
     SensorMonitor<GroveRotaryValue> rotaryMonitorCenter;
     SensorMonitor<Double> rangerMonitorLeft;
     SensorMonitor<Double> rangerMonitorRight;
-    SensorMonitor<Boolean> loadButtonMonitor;
 
-    boolean isDefaultSet = false;
-
-    double rotaryLeftDefault = 0;
-    double rotaryRightDefault = 0;
-    double rotaryCenterDefault = 0;
+    double rotaryLeftDefault;
+    double rotaryRightDefault;
+    double rotaryCenterDefault;
 
     MachineState machineState;
+    MachineState machineStatePrev;
     InfluxDB influxDB;
 
-    void setup(){
-        try{
+
+    void setup() {
+        try {
             machineState = new MachineState();
+            machineStatePrev = new MachineState();
             influxDB = new InfluxDB(TOKEN, BUCKET, ORG);
 
             grovePi = new GrovePi4J();
-            rotaryLeft = new GroveRotarySensor(grovePi, 0);
-            rotaryRight = new GroveRotarySensor(grovePi, 1);
-            rotaryCenter = new GroveRotarySensor(grovePi, 2);
-            ultrasonicLeft = new GroveUltrasonicRanger(grovePi, 0);
-            ultrasonicRight = new GroveUltrasonicRanger(grovePi, 1);
-            loadButton = new GroveButton(grovePi, 2);
+            rotaryLeft = new GroveRotarySensor(grovePi, 2);
+            rotaryRight = new GroveRotarySensor(grovePi, 0);
+            rotaryCenter = new GroveRotarySensor(grovePi, 1);
+            ultrasonicLeft = new GroveUltrasonicRanger(grovePi, 5);
+            ultrasonicRight = new GroveUltrasonicRanger(grovePi, 6);
+            //loadButton = new GroveButton(grovePi, 2);
 
-            rotaryMonitorLeft = new SensorMonitor<>(rotaryLeft, 500);
-            rotaryMonitorRight = new SensorMonitor<>(rotaryRight, 500);
-            rotaryMonitorCenter = new SensorMonitor<>(rotaryCenter, 500);
-            rangerMonitorLeft = new SensorMonitor<>(ultrasonicLeft, 500);
-            rangerMonitorRight = new SensorMonitor<>(ultrasonicRight, 500);
-            loadButtonMonitor = new SensorMonitor<>(loadButton, 500);
+            rotaryMonitorLeft = new SensorMonitor<>(rotaryLeft, ROTARY_MONITOR_DELAY_MS);
+            rotaryMonitorRight = new SensorMonitor<>(rotaryRight, ROTARY_MONITOR_DELAY_MS);
+            rotaryMonitorCenter = new SensorMonitor<>(rotaryCenter, ROTARY_MONITOR_DELAY_MS);
+            rangerMonitorLeft = new SensorMonitor<>(ultrasonicLeft, RANGER_MONITOR_DELAY_MS);
+            rangerMonitorRight = new SensorMonitor<>(ultrasonicRight, RANGER_MONITOR_DELAY_MS);
 
             rotaryMonitorLeft.start();
             rotaryMonitorRight.start();
             rotaryMonitorCenter.start();
             rangerMonitorLeft.start();
             rangerMonitorRight.start();
-            loadButtonMonitor.start();
-        }catch (Exception e){
+
+            Thread.sleep(3000);
+            waitForMonitors();
+
+            rotaryLeftDefault = rotaryMonitorLeft.getValue().getDegrees();
+            rotaryRightDefault = rotaryMonitorRight.getValue().getDegrees();
+            rotaryCenterDefault = rotaryMonitorCenter.getValue().getDegrees();
+
+            System.out.println("Default rotaryLeft: " + rotaryLeftDefault);
+            System.out.println("Default rotaryRight: " + rotaryRightDefault);
+            System.out.println("Default Center: " + rotaryCenterDefault);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    void monitorRangers(){
-        if(rangerMonitorLeft.isValid() && rangerMonitorRight.isValid()){
-            double rangerLeftValue = rangerMonitorLeft.getValue();
-            double rangerRightValue = rangerMonitorRight.getValue();
-
-            machineState.setRightBatchPresent(rangerRightValue > RANGER_MAX_DISTANCE);
-            machineState.setLeftBatchPresent(rangerLeftValue > RANGER_MAX_DISTANCE);
-
-
+    void waitForMonitors() throws InterruptedException {
+        while (!rotaryMonitorLeft.isValid()
+                || !rotaryMonitorRight.isValid()
+                || !rotaryMonitorCenter.isValid()
+                || !rangerMonitorLeft.isValid()
+                || !rangerMonitorRight.isValid()
+                || rotaryMonitorLeft.getValue() == null
+                || rotaryMonitorRight.getValue() == null
+                || rotaryMonitorCenter.getValue() == null
+                || rangerMonitorLeft.getValue() == null
+                || rangerMonitorRight.getValue() == null) {
+            Thread.sleep(50);
         }
     }
 
-    void monitorGates(){
-        if(rotaryMonitorLeft.isValid() && rotaryMonitorRight.isValid() && rotaryMonitorCenter.isValid()){
+    void monitorRangers() {
+        if (rangerMonitorLeft.isValid() && rangerMonitorRight.isValid()) {
+            double rangerLeftValue = rangerMonitorLeft.getValue();
+            double rangerRightValue = rangerMonitorRight.getValue();
+            boolean leftBatchPresent = !(rangerLeftValue > RANGER_MAX_DISTANCE);
+            boolean rightBatchPresent = !(rangerRightValue > RANGER_MAX_DISTANCE);
 
-            double rotaryLeftValue = rotaryMonitorLeft.getValue().getDegrees();
-            double rotaryRightValue = rotaryMonitorRight.getValue().getDegrees();
-            double rotaryCenterValue = rotaryMonitorCenter.getValue().getDegrees();
+            if (machineState.isLeftBatchPresent() != leftBatchPresent) {
+                machineState.setLeftBatchPresent(leftBatchPresent);
+            }
 
+            if (machineState.isRightBatchPresent() != rightBatchPresent) {
+                machineState.setRightBatchPresent(rightBatchPresent);
+            }
+        }
+    }
 
-            if(!isDefaultSet){
-                rotaryLeftDefault = rotaryLeftValue;
-                rotaryRightDefault = rotaryRightValue;
-                rotaryCenterDefault = rotaryCenterValue;
-                isDefaultSet = true;
-            }else{
-                double centerOffset = rotaryCenterValue - rotaryCenterDefault;
-                double leftOffset = Math.abs(rotaryLeftValue - rotaryLeftDefault);
-                double rightOffset = Math.abs(rotaryRightValue - rotaryRightDefault);
+    void monitorGates() {
+        if (rotaryMonitorLeft.isValid() && rotaryMonitorRight.isValid() && rotaryMonitorCenter.isValid()) {
+            monitorGate(rotaryMonitorLeft.getValue().getDegrees(), rotaryLeftDefault, 0);
+            monitorGate(rotaryMonitorRight.getValue().getDegrees(), rotaryRightDefault, 1);
+            monitorGate(rotaryMonitorCenter.getValue().getDegrees(), rotaryCenterDefault, 2);
+        }
+    }
 
+    void monitorGate(double rotaryValue, double defaultValue, int sensorNumber) {
+        double difference = rotaryValue - defaultValue;
 
-                if(centerOffset > -20.0 && centerOffset < 20 && machineState.isSortingOpen()){
-                    machineState.setSortingOpen(false);
-                }
-                if(centerOffset > 20.0 && !machineState.isSortingOpen()){
+        boolean open = Math.abs(difference) > ROTARY_THRESHOLD;
+
+        if (sensorNumber == 0) {
+            if (!open) {
+                machineState.setLeftGateOpen(false);
+            } else if (!machineState.isLeftGateOpen()) {
+                System.out.println(sensorNumber + ": Aperto;  Differenza: " + difference);
+                machineState.incrementLeftDepoCounter(machineState.getLeftGateCounter());
+                System.out.println("Counter Depo sinistra: " + machineState.getLeftDepoCounter());
+                machineState.setLeftGateCounter(0);
+                machineState.setLeftGateOpen(true);
+            }
+        } else if (sensorNumber == 1) {
+            if (!open) {
+                machineState.setRightGateOpen(false);
+            } else if (!machineState.isRightGateOpen()) {
+                System.out.println(sensorNumber + ": Aperto;  Differenza: " + difference);
+                machineState.incrementRightDepoCounter(machineState.getRightGateCounter());
+                System.out.println("Counter Depo destra: " + machineState.getRightDepoCounter());
+                machineState.setRightGateCounter(0);
+                machineState.setRightGateOpen(true);
+            }
+        } else if (sensorNumber == 2) {
+            if (!open) {
+                machineState.setSortingOpen(false);
+            } else if (!machineState.isSortingOpen()) {
+                if (difference > 0) {
+                    System.out.println(sensorNumber + ": Aperto - Sinistra;  Differenza: " + difference);
                     machineState.incrementLeftGateCounter();
-                    machineState.setSortingOpen(true);
-                    System.out.println("2: Aperto - Sinistra;  Differenza: " + (rotaryRightValue - rotaryCenterDefault));
-                    System.out.println("Counter destra: " + machineState.getLeftGateCounter());
-                }
-                if(centerOffset < -20.0 && !machineState.isSortingOpen()){
+                    System.out.println("Counter sinistra: " + machineState.getLeftGateCounter());
+                } else {
+                    System.out.println(sensorNumber + ": Aperto - Destra;  Differenza: " + difference);
                     machineState.incrementRightGateCounter();
-                    machineState.setSortingOpen(true);
-                    System.out.println("2: Aperto - Destra;  Differenza: " + (rotaryCenterValue - rotaryCenterDefault));
                     System.out.println("Counter destra: " + machineState.getRightGateCounter());
                 }
-                if(leftOffset < 30.0 && machineState.isLeftGateOpen()){
-                    machineState.setLeftGateOpen(false);
-                }
-                if(leftOffset > 30.0 && !machineState.isLeftGateOpen()){
-                    System.out.println("0: Aperto;  Differenza: " + Math.abs(rotaryLeftValue - rotaryLeftDefault));
-                    machineState.incrementLeftDepoCounter(machineState.getLeftGateCounter());
-                    machineState.setLeftGateCounter(0);
-                    machineState.setLeftGateOpen(true);
-                }
-                if(rightOffset < 30.0 && machineState.isRightGateOpen()){
-                    machineState.setRightGateOpen(false);
-                }
-                if(rightOffset > 30.0 && !machineState.isRightGateOpen()){
-                    System.out.println("1: Aperto;  Differenza: " + Math.abs(rotaryRightValue - rotaryRightDefault));
-                    machineState.incrementRightDepoCounter(machineState.getRightGateCounter());
-                    machineState.setRightGateCounter(0);
-                    machineState.setRightGateOpen(true);
-                }
+                machineState.setSortingOpen(true);
             }
         }
     }
@@ -147,21 +174,19 @@ public class Main {
 
         setup();
 
-        while (true){
-
+        while (true) {
             monitorGates();
+            monitorRangers();
 
-            influxDB.write(machineState);
-
-            //double rotaryMonitorValue = rotaryMonitor.isValid() ? rotaryMonitor.getValue().getDegrees() : 150;
-
-
-
-            Thread.sleep(500);
+            if (!machineState.equals(machineStatePrev)) {
+                influxDB.write(machineState);
+                machineStatePrev = new MachineState(machineState);
+            }
+            Thread.sleep(LOOP_DELAY_MS);
         }
     }
 
-    public static void main(String[] args) throws Exception{
+    public static void main(String[] args) throws Exception {
         Main main = new Main();
         main.run();
     }

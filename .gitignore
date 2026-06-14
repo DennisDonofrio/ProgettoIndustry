@@ -1,3 +1,4 @@
+.idea
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -18,7 +19,7 @@ target/
 .factorypath
 .project
 .settings
-.springBeans
+.springBeans+
 .sts4-cache
 
 ### NetBeans ###
