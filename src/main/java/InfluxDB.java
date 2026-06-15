@@ -1,4 +1,3 @@
-import java.time.Instant;
 import com.influxdb.client.InfluxDBClient;
 import com.influxdb.client.InfluxDBClientFactory;
 import com.influxdb.client.WriteApiBlocking;
@@ -35,6 +34,12 @@ public class InfluxDB {
                 .addField("rightGateCounterValue", machineState.getRightGateCounter())
                 .addField("leftDepoCounterValue", machineState.getLeftDepoCounter())
                 .addField("rightDepoCounterValue", machineState.getRightDepoCounter())
+                .addField("totalProcessedCounterValue", machineState.getTotalProcessedCounter())
+                .addField("totalGoodCounterValue", machineState.getTotalGoodCounter())
+                .addField("totalDiscardedCounterValue", machineState.getTotalDiscardedCounter())
+                .addField("averageGoodPerBatchValue", machineState.getAverageGoodPerBatch())
+                .addField("averageDiscardedPerBatchValue", machineState.getAverageDiscardedPerBatch())
+                .addField("averageSortingToGateTimeMsValue", machineState.getAverageSortingToGateTimeMs())
 
                 .addField("leftGateOpenValue", machineState.isLeftGateOpen() ? 1 : 0)
                 .addField("rightGateOpenValue", machineState.isRightGateOpen() ? 1 : 0)
@@ -42,6 +47,17 @@ public class InfluxDB {
 
                 .addField("leftBatchPresentValue", machineState.isLeftBatchPresent() ? 1 : 0)
                 .addField("rightBatchPresentValue", machineState.isRightBatchPresent() ? 1 : 0)
+                .addField("monitoringActiveValue", machineState.isMonitoringActive() ? 1 : 0)
+                .addField("currentBatchBallsValue", machineState.getCurrentBatchBalls())
+                .addField("missingBallWarningValue", machineState.isMissingBallWarning() ? 1 : 0)
+                .addField("extraBallWarningValue", machineState.isExtraBallWarning() ? 1 : 0)
+                .addField("batchDurationMsValue", machineState.getBatchDurationMs())
+                .addField("timeSinceLastAppleMsValue", machineState.getTimeSinceLastAppleMs())
+                .addField("firstAppleDelayMsValue", machineState.getFirstAppleDelayMs())
+                .addField("lineBlockedWarningValue", machineState.isLineBlockedWarning() ? 1 : 0)
+                .addField("leftGateStuckOpenWarningValue", machineState.isLeftGateStuckOpenWarning() ? 1 : 0)
+                .addField("rightGateStuckOpenWarningValue", machineState.isRightGateStuckOpenWarning() ? 1 : 0)
+                .addField("sortingGateStuckOpenWarningValue", machineState.isSortingGateStuckOpenWarning() ? 1 : 0)
 
                 .time(System.currentTimeMillis(), WritePrecision.MS);
         //System.out.println(point.toLineProtocol());
